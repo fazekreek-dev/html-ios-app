@@ -19,6 +19,14 @@ jobs:
           npm install @capacitor/core @capacitor/cli @capacitor/ios
           npx cap init "My HTML App" "com.example.htmlapp" --web-dir=www
           npx cap add ios
+
+      - name: Force Higher iOS Deployment Target
+        run: |
+          # Bumps the minimum deployment target in the Podfile to iOS 15.0 to satisfy CocoaPods
+          sed -i '' "s/platform :ios, '13.0'/platform :ios, '15.0'/g" ios/App/Podfile || true
+          sed -i '' "s/platform :ios, '12.0'/platform :ios, '15.0'/g" ios/App/Podfile || true
+          
+          # Sync the native structure after forcing the target
           npx cap sync ios
 
       - name: Build iOS App with Xcode
