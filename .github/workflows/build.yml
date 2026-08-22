@@ -1,0 +1,39 @@
+name: Build Unsigned Webview IPA
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Capacitor & Create Project
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/ios
+          npx cap init "My HTML App" "com.example.htmlapp" --web-dir=www
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Build iOS App with Xcode
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+
+      - name: Package Into IPA File
+        run: |
+          mkdir -p Payload
+          mv ios/App/build/Release-iphoneos/App.app Payload/
+          zip -r App-Unsigned.ipa Payload
+
+      - name: Download Your IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unsigned-IPA
+          path: App-Unsigned.ipa
