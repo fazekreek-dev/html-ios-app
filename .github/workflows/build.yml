@@ -11,24 +11,24 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install Capacitor & Add iOS Platform
         run: |
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/ios
           npx cap init "My HTML App" "com.example.htmlapp" --web-dir=www
-          # We add the platform first, which physically creates the Podfile
           npx cap add ios
 
       - name: Force Higher iOS Deployment Target
         run: |
-          # Now that the Podfile physically exists, we force-bump its internal targets to iOS 15.0
-          sed -i '' "s/platform :ios, '13.0'/platform :ios, '15.0'/g" ios/App/Podfile || true
-          sed -i '' "s/platform :ios, '14.0'/platform :ios, '15.0'/g" ios/App/Podfile || true
-          sed -i '' "s/platform :ios, '12.0'/platform :ios, '15.0'/g" ios/App/Podfile || true
+          # Bumps the target to 15.0 whether it uses single or double quotes
+          sed -i '' 's/platform :ios, .*/platform :ios, '\''15.0'\''/g' ios/App/Podfile
           
-          # Now we run the sync tool which triggers the cocoapods install successfully
+          # Print the file to verify the target changed successfully
+          cat ios/App/Podfile
+          
+          # Sync the native structure and run cocoapods install
           npx cap sync ios
 
       - name: Build iOS App with Xcode
