@@ -3,7 +3,7 @@ on: [workflow_dispatch]
 
 jobs:
   build:
-    runs-on: macos-14  # Uses a highly stable macOS runner configuration
+    runs-on: macos-14
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -16,7 +16,6 @@ jobs:
       - name: Install Stable Capacitor 6
         run: |
           npm init -y
-          # Installing Capacitor 6 avoids the iOS 15 conflict entirely
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/ios@6
           npx cap init "My HTML App" "com.example.htmlapp" --web-dir=www
 
@@ -31,12 +30,14 @@ jobs:
       - name: Build iOS App with Xcode
         run: |
           cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+          # The -derivedDataPath build flag forces Xcode to output inside the project folder
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
 
       - name: Package Into IPA File
         run: |
           mkdir -p Payload
-          mv ios/App/build/Release-iphoneos/App.app Payload/ || mv ios/App/build/Products/Release-iphoneos/App.app Payload/ || true
+          # Copies the newly redirected build artifact into the Payload folder
+          cp -r ios/App/build/Build/Products/Release-iphoneos/App.app Payload/
           zip -r App-Unsigned.ipa Payload
 
       - name: Download Your IPA
