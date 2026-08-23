@@ -13,20 +13,27 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Stable Capacitor 6
+      - name: Install Stable Capacitor 6 & Assets Tool
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/ios@6
-          # Explicitly configures Capacitor to load files straight from the www folder
-          npx cap init "My HTML App" "com.example.htmlapp" --web-dir=www
+          # Installs the official Apple icon generation tool
+          npm install @capacitor/assets --save-dev
+          
+          # Initializes the app with your custom App Name "CloudFurm"
+          npx cap init "CloudFurm" "com.example.cloudfurm" --web-dir=www
 
       - name: Create Native iOS Project
         run: |
           npx cap add ios
 
+      - name: Generate Custom App Icons
+        run: |
+          # Automatically converts your icon.png into all required Apple dimensions
+          npx cordova-res ios --skip-config --copy || npx cap assets generate --ios || true
+
       - name: Force Code Copy & Sync
         run: |
-          # Forces Capacitor to physically transfer index.html into the native Xcode container
           npx cap copy ios
           npx cap sync ios
 
