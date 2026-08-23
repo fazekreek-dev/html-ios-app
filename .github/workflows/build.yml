@@ -17,26 +17,27 @@ jobs:
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/ios@6
+          # Explicitly configures Capacitor to load files straight from the www folder
           npx cap init "My HTML App" "com.example.htmlapp" --web-dir=www
 
       - name: Create Native iOS Project
         run: |
           npx cap add ios
 
-      - name: Sync Dependencies
+      - name: Force Code Copy & Sync
         run: |
+          # Forces Capacitor to physically transfer index.html into the native Xcode container
+          npx cap copy ios
           npx cap sync ios
 
       - name: Build iOS App with Xcode
         run: |
           cd ios/App
-          # The -derivedDataPath build flag forces Xcode to output inside the project folder
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
 
       - name: Package Into IPA File
         run: |
           mkdir -p Payload
-          # Copies the newly redirected build artifact into the Payload folder
           cp -r ios/App/build/Build/Products/Release-iphoneos/App.app Payload/
           zip -r App-Unsigned.ipa Payload
 
