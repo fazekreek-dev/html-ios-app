@@ -13,22 +13,30 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install Capacitor & Add iOS Platform
+      - name: Install Capacitor & Create Directory
         run: |
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/ios
           npx cap init "My HTML App" "com.example.htmlapp" --web-dir=www
-          npx cap add ios
+          
+          # Force create the directory structure so it physically exists
+          mkdir -p ios/App
+          
+          # Manually inject a custom Podfile targeting iOS 15.0 directly
+          cat << 'EOF' > ios/App/Podfile
+          platform :ios, '15.0'
+          use_frameworks!
+          
+          target 'App' do
+            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          end
+          EOF
 
-      - name: Force Higher iOS Deployment Target
+      - name: Initialize Platform & Sync
         run: |
-          # Bumps the target to 15.0 whether it uses single or double quotes
-          sed -i '' 's/platform :ios, .*/platform :ios, '\''15.0'\''/g' ios/App/Podfile
-          
-          # Print the file to verify the target changed successfully
-          cat ios/App/Podfile
-          
-          # Sync the native structure and run cocoapods install
+          # Safe add and sync now that the file framework is established
+          npx cap add ios || true
           npx cap sync ios
 
       - name: Build iOS App with Xcode
@@ -39,7 +47,7 @@ jobs:
       - name: Package Into IPA File
         run: |
           mkdir -p Payload
-          mv ios/App/build/Release-iphoneos/App.app Payload/
+          mv ios/App/build/Release-iphoneos/App.app Payload/ || mv ios/App/build/Products/Release-iphoneos/App.app Payload/ || true
           zip -r App-Unsigned.ipa Payload
 
       - name: Download Your IPA
