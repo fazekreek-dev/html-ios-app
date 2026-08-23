@@ -3,7 +3,7 @@ on: [workflow_dispatch]
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14  # Uses a highly stable macOS runner configuration
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -11,32 +11,21 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
 
-      - name: Install Capacitor & Create Directory
+      - name: Install Stable Capacitor 6
         run: |
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/ios
+          # Installing Capacitor 6 avoids the iOS 15 conflict entirely
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/ios@6
           npx cap init "My HTML App" "com.example.htmlapp" --web-dir=www
-          
-          # Force create the directory structure so it physically exists
-          mkdir -p ios/App
-          
-          # Manually inject a custom Podfile targeting iOS 15.0 directly
-          cat << 'EOF' > ios/App/Podfile
-          platform :ios, '15.0'
-          use_frameworks!
-          
-          target 'App' do
-            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
-            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-          end
-          EOF
 
-      - name: Initialize Platform & Sync
+      - name: Create Native iOS Project
         run: |
-          # Safe add and sync now that the file framework is established
-          npx cap add ios || true
+          npx cap add ios
+
+      - name: Sync Dependencies
+        run: |
           npx cap sync ios
 
       - name: Build iOS App with Xcode
