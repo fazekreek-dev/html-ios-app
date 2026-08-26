@@ -1,4 +1,5 @@
 name: Build Unsigned Webview IPA
+
 on: [workflow_dispatch]
 
 jobs:
@@ -17,7 +18,7 @@ jobs:
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/ios@6
-          # Installs the official Apple icon generation tool
+          # Official Capacitor icon/splash generator
           npm install @capacitor/assets --save-dev
           
           # Initializes the app with your custom App Name "CloudFurm"
@@ -27,10 +28,25 @@ jobs:
         run: |
           npx cap add ios
 
+      - name: Prepare icon.png for asset generation
+        run: |
+          # @capacitor/assets expects the source icon in assets/icon.png (or logo.png)
+          mkdir -p assets
+          if [ -f icon.png ]; then
+            cp icon.png assets/icon.png
+            echo "✅ icon.png copied to assets/icon.png"
+          else
+            echo "❌ ERROR: icon.png not found in repository root!"
+            exit 1
+          fi
+
       - name: Generate Custom App Icons
         run: |
-          # Automatically converts your icon.png into all required Apple dimensions
-          npx cordova-res ios --skip-config --copy || npx cap assets generate --ios || true
+          # Generates ALL required iOS icons (including AppIcon60x60@2x.png and AppIcon76x76@2x~ipad.png)
+          # and automatically places them into ios/App/App/Assets.xcassets/AppIcon.appiconset/
+          npx @capacitor/assets generate --ios \
+            --iconBackgroundColor '#ffffff' \
+            --splashBackgroundColor '#ffffff'
 
       - name: Force Code Copy & Sync
         run: |
@@ -40,7 +56,14 @@ jobs:
       - name: Build iOS App with Xcode
         run: |
           cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO clean build
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            clean build
 
       - name: Package Into IPA File
         run: |
