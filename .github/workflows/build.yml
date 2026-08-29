@@ -73,7 +73,7 @@ jobs:
               // Remove WKAppBoundDomains if present, which breaks non-standard web view loads on sideloaded apps
               delete obj.WKAppBoundDomains;
 
-              // Match the app's default dark theme for the instant before
+              // Match the default dark theme for the instant before
               // JS runs and the StatusBar plugin can set the real style —
               // otherwise the status bar briefly renders with dark (hard to
               // see) content against the dark launch background.
