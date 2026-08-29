@@ -862,7 +862,7 @@ altcha-widget{--altcha-color-base:var(--bg-surface);--altcha-color-border:var(--
 <script src="https://js.puter.com/v2/"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut, reload, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, initializeAuth, browserLocalPersistence, inMemoryPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut, reload, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, updateDoc, runTransaction, increment, addDoc, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -875,7 +875,23 @@ const firebaseConfig = {
   measurementId: "G-PMB893T2YW"
 };
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+// Default getAuth(app) uses indexedDBLocalPersistence first, which has a
+// long-standing WebKit bug: indexedDB.open() can hang forever (never
+// resolves or rejects) inside WKWebView contexts served from a custom
+// scheme handler — exactly this app's Capacitor http://localhost setup.
+// That hang is silent, so Firebase's normal persistence fallback never
+// triggers (it only falls back on an explicit failure, not a stall).
+// Skip IndexedDB entirely: try browserLocalPersistence (localStorage —
+// itself already hardened via safeStorage elsewhere in this file), then
+// fall back to no persistence at all rather than hang.
+let auth;
+try {
+  auth = initializeAuth(app, { persistence: [browserLocalPersistence, inMemoryPersistence] });
+} catch (e) {
+  // initializeAuth throws if auth was already initialized for this app
+  // (e.g. hot-reload during dev) — fall back to the default getter.
+  auth = getAuth(app);
+}
 const db = getFirestore(app);
 
 // ---- Cloudflare Worker (secrets live on the Worker, not in this page) ----
