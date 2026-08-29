@@ -42,6 +42,32 @@ jobs:
         run: |
           npx cap add ios
 
+      - name: Fix App Transport Security & Bundle Integrity for KSign/ESign
+        run: |
+          node -e '
+            const fs = require("fs");
+            const plist = require("plist");
+            // Find Info.plist path dynamically
+            const plistPath = "ios/App/App/Info.plist";
+            if (fs.existsSync(plistPath)) {
+              let xml = fs.readFileSync(plistPath, "utf8");
+              let obj = plist.parse(xml);
+              
+              // Ensure App Transport Security allows cleartext local traffic
+              obj.NSAppTransportSecurity = obj.NSAppTransportSecurity || {};
+              obj.NSAppTransportSecurity.NSAllowsArbitraryLoads = true;
+              
+              // Remove WKAppBoundDomains if present, which breaks non-standard web view loads on sideloaded apps
+              delete obj.WKAppBoundDomains;
+
+              fs.writeFileSync(plistPath, plist.build(obj));
+              console.log("Patched Info.plist successfully.");
+            } else {
+              console.error("Info.plist not found!");
+              exit(1);
+            }
+          '
+
       - name: Prepare icon.png for asset generation
         run: |
           mkdir -p assets
