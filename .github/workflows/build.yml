@@ -1,22 +1,26 @@
 name: Build Unsigned Webview IPA
+
 on: [workflow_dispatch]
+
 jobs:
   build:
     runs-on: macos-14
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - name: Install Stable Capacitor 6 & Assets Tool
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/ios@6
-          npm install @capacitor/status-bar@6
           npm install @capacitor/assets --save-dev
           npx cap init "CloudFurm" "com.example.cloudfurm" --web-dir=www
+
       - name: Configure Capacitor for HTTP Localhost (Firebase Auth)
         run: |
           node -e '
@@ -33,6 +37,7 @@ jobs:
             fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
             console.log("Updated capacitor.config.json with HTTP localhost configuration.");
           '
+
       - name: Configure Capacitor for Edge-to-Edge Safe Area (Status Bar)
         run: |
           node -e '
@@ -42,41 +47,31 @@ jobs:
             if (fs.existsSync(configPath)) {
               config = JSON.parse(fs.readFileSync(configPath, "utf8"));
             }
-            // Make the WKWebView extend under the status bar/notch so CSS
-            // env(safe-area-inset-*) values populate correctly, instead of
-            // the native frame already excluding that area (which would
-            // make env() report 0 and silently defeat all the safe-area
-            // CSS already in index.html).
             config.ios = config.ios || {};
             config.ios.contentInset = "always";
             fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
             console.log("Set ios.contentInset = always for safe-area support.");
           '
+
       - name: Create Native iOS Project
         run: |
           npx cap add ios
+
       - name: Fix App Transport Security & Bundle Integrity for KSign/ESign
         run: |
           node -e '
             const fs = require("fs");
             const plist = require("plist");
-            // Find Info.plist path dynamically
             const plistPath = "ios/App/App/Info.plist";
             if (fs.existsSync(plistPath)) {
               let xml = fs.readFileSync(plistPath, "utf8");
               let obj = plist.parse(xml);
               
-              // Ensure App Transport Security allows cleartext local traffic
               obj.NSAppTransportSecurity = obj.NSAppTransportSecurity || {};
               obj.NSAppTransportSecurity.NSAllowsArbitraryLoads = true;
               
-              // Remove WKAppBoundDomains if present, which breaks non-standard web view loads on sideloaded apps
               delete obj.WKAppBoundDomains;
 
-              // Match the default dark theme for the instant before
-              // JS runs and the StatusBar plugin can set the real style —
-              // otherwise the status bar briefly renders with dark (hard to
-              // see) content against the dark launch background.
               obj.UIViewControllerBasedStatusBarAppearance = false;
               obj.UIStatusBarStyle = "UIStatusBarStyleLightContent";
 
@@ -84,9 +79,18 @@ jobs:
               console.log("Patched Info.plist successfully.");
             } else {
               console.error("Info.plist not found!");
-              exit(1);
+              process.exit(1);
             }
           '
+
+      - name: Strip Embedded Signatures & Provisioning Profiles (KSign/ESign Fix)
+        run: |
+          # Removes embedded provisioning profiles and signature markers that 
+          # cause KSign/ESign verification and installation crashes on sideloading.
+          rm -rf ios/App/App.xcodeproj/project.pbxproj.bak
+          find ios/App -name "*.mobileprovision" -delete
+          find ios/App -name "_CodeSignature" -exec rm -rf {} + || true
+
       - name: Prepare icon.png for asset generation
         run: |
           mkdir -p assets
@@ -97,15 +101,18 @@ jobs:
             echo "❌ ERROR: icon.png not found in repository root!"
             exit 1
           fi
+
       - name: Generate Custom App Icons
         run: |
           npx @capacitor/assets generate --ios \
             --iconBackgroundColor '#ffffff' \
             --splashBackgroundColor '#ffffff'
+
       - name: Force Code Copy & Sync
         run: |
           npx cap copy ios
           npx cap sync ios
+
       - name: Build iOS App with Xcode
         run: |
           cd ios/App
@@ -117,11 +124,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             clean build
+
       - name: Package Into IPA File
         run: |
           mkdir -p Payload
           cp -r ios/App/build/Build/Products/Release-iphoneos/App.app Payload/
           zip -r App-Unsigned.ipa Payload
+
       - name: Download Your IPA
         uses: actions/upload-artifact@v4
         with:
