@@ -38,21 +38,6 @@ jobs:
             console.log("Updated capacitor.config.json with HTTP localhost configuration.");
           '
 
-      - name: Configure Capacitor for Edge-to-Edge Safe Area (Status Bar)
-        run: |
-          node -e '
-            const fs = require("fs");
-            const configPath = "capacitor.config.json";
-            let config = {};
-            if (fs.existsSync(configPath)) {
-              config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-            }
-            config.ios = config.ios || {};
-            config.ios.contentInset = "always";
-            fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-            console.log("Set ios.contentInset = always for safe-area support.");
-          '
-
       - name: Create Native iOS Project
         run: |
           npx cap add ios
@@ -62,34 +47,26 @@ jobs:
           node -e '
             const fs = require("fs");
             const plist = require("plist");
+            // Find Info.plist path dynamically
             const plistPath = "ios/App/App/Info.plist";
             if (fs.existsSync(plistPath)) {
               let xml = fs.readFileSync(plistPath, "utf8");
               let obj = plist.parse(xml);
               
+              // Ensure App Transport Security allows cleartext local traffic
               obj.NSAppTransportSecurity = obj.NSAppTransportSecurity || {};
               obj.NSAppTransportSecurity.NSAllowsArbitraryLoads = true;
               
+              // Remove WKAppBoundDomains if present, which breaks non-standard web view loads on sideloaded apps
               delete obj.WKAppBoundDomains;
-
-              obj.UIViewControllerBasedStatusBarAppearance = false;
-              obj.UIStatusBarStyle = "UIStatusBarStyleLightContent";
 
               fs.writeFileSync(plistPath, plist.build(obj));
               console.log("Patched Info.plist successfully.");
             } else {
               console.error("Info.plist not found!");
-              process.exit(1);
+              exit(1);
             }
           '
-
-      - name: Strip Embedded Signatures & Provisioning Profiles (KSign/ESign Fix)
-        run: |
-          # Removes embedded provisioning profiles and signature markers that 
-          # cause KSign/ESign verification and installation crashes on sideloading.
-          rm -rf ios/App/App.xcodeproj/project.pbxproj.bak
-          find ios/App -name "*.mobileprovision" -delete
-          find ios/App -name "_CodeSignature" -exec rm -rf {} + || true
 
       - name: Prepare icon.png for asset generation
         run: |
