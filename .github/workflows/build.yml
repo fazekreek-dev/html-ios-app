@@ -18,11 +18,25 @@ jobs:
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/ios@6
-          # Official Capacitor icon/splash generator
           npm install @capacitor/assets --save-dev
-          
-          # Initializes the app with your custom App Name "CloudFurm"
           npx cap init "CloudFurm" "com.example.cloudfurm" --web-dir=www
+
+      - name: Configure Capacitor for HTTP Localhost (Firebase Auth)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const configPath = "capacitor.config.json";
+            let config = {};
+            if (fs.existsSync(configPath)) {
+              config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+            }
+            config.server = config.server || {};
+            config.server.iosScheme = "http";
+            config.server.hostname = "localhost";
+            config.server.cleartext = true;
+            fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+            console.log("Updated capacitor.config.json with HTTP localhost configuration.");
+          '
 
       - name: Create Native iOS Project
         run: |
@@ -30,7 +44,6 @@ jobs:
 
       - name: Prepare icon.png for asset generation
         run: |
-          # @capacitor/assets expects the source icon in assets/icon.png (or logo.png)
           mkdir -p assets
           if [ -f icon.png ]; then
             cp icon.png assets/icon.png
@@ -42,8 +55,6 @@ jobs:
 
       - name: Generate Custom App Icons
         run: |
-          # Generates ALL required iOS icons (including AppIcon60x60@2x.png and AppIcon76x76@2x~ipad.png)
-          # and automatically places them into ios/App/App/Assets.xcassets/AppIcon.appiconset/
           npx @capacitor/assets generate --ios \
             --iconBackgroundColor '#ffffff' \
             --splashBackgroundColor '#ffffff'
